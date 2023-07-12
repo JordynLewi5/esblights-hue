@@ -1,18 +1,17 @@
 const axios = require('axios');
 const bridgeIP = '192.168.123.253';
 const username = 'kPaxKx0IAHRcoYJFqbEr9SmdJk4tieJAO1OdznEX';
+
 require('dotenv').config();
 
-
-
 // MAIN
-(async function main() {
-    // reset all lights
-    for (let i = 5; i <= 19; i++) {
-        lightOn(i, false);
-    }
+(async function main() {    
+    await lightOn(18, false);
+    await lightOn(18, true);
 
-    let id = 16;
+    let id = 18;
+    // number between 0 and 1 please.
+    let boostFactor = 1;
 
     // Manage hours of operation
     let [start, end] = [await axios.get('https://api.sunrisesunset.io/json?lat=33.500280&lng=-86.792912')
@@ -22,19 +21,17 @@ require('dotenv').config();
             parseFloat(response.data.results.sunset.split(':')[1])/60 + 12;
     }), 3];
 
-
     const now = new Date();
     const hours = now.getHours();
     const minutes = now.getMinutes();
-    const decimalTime = hours + (minutes / 60);   
-
-    start = 0
+    const seconds = now.getSeconds();
+    const decimalTime = hours + (minutes / 60) + (seconds / 3600);   
 
     if (decimalTime >= start || decimalTime < end) {
         // Turn on light
         lightOn(id, true);
         // Cycle through the colors
-        cycleLights(id, await getHexCodes());
+        cycleLights(id, await getHexCodes(), boostFactor);
     } else {
         // Turn off light
         lightOn(id, false);
@@ -50,7 +47,7 @@ require('dotenv').config();
             // Turn on light
             lightOn(id, true);
             // Cycle through the colors
-            cycleLights(id, await getHexCodes());
+            cycleLights(id, await getHexCodes(), boostFactor);
         } else {
             // Turn off light
             lightOn(id, false);
@@ -76,35 +73,41 @@ function lightOn(id, on) {
         });
 }
 
-
 /**
  * Cycles through the colors in the hexCodes array and apply the color to
  * the corresponding light.
  * @param {*} id
  * @param {*} hexCodes
  */
-function cycleLights(id, hexCodes) {
+function cycleLights(id, hexCodes, boostFactor) {
+
+    // hexCodes[0] = "#000000"
+    // for (let n = 0; n < 99; n++) {
+    //     //push a random color to the array
+    //     hexCodes.push(`#${Math.floor(Math.random()*16777215).toString(16)}`);
+    // }
+
     let i = 0;
+
     try {
         clearInterval(colorSlideInterval); // Clear the previous interval
     } catch (error) {
         // Do nothing
     }
+
     colorSlideInterval = setInterval(async () => {
-        setLightProperties(id, hexCodes[i])
-        .then((response) => {
-            const colorSequence = `\x1b[38;2;${hexToRGB(hexCodes[i]).join(';')}m`;
-            const resetSequence = '\x1b[0m';
-            console.log(colorSequence + JSON.stringify(response) + resetSequence);
-
-            i++;
-            if (i > hexCodes.length - 1) i = 0;
-        });
-
-
-    }, 10000);
+        setLightProperties(id, hexCodes[i], boostFactor)
+        
+        i++;
+        if (i >= hexCodes.length) i = 0;
+    }, 20 * 1000 / (hexCodes.length));
 }
 
+/**
+ * Converts hex code to RGB.
+ * @param {String} hex 
+ * @returns {array} [r, g, b]
+ */
 function hexToRGB(hex) {
     const bigint = parseInt(hex.replace('#', ''), 16);
     const r = (bigint >> 16) & 255;
@@ -118,9 +121,25 @@ function hexToRGB(hex) {
  * @returns Hex codes
  */
 async function getHexCodes() {
-    const response = await axios.get(`http://esblight-api.uvtywtylvd-zqy3jy2wn3kg.p.temp-site.link/api/esb-light-data?apikey=${process.env.ESBAPIKEY}`);
+    const response = await axios.get(`https://esblight-api.kinetic.com/api/esb-light-data?apikey=${process.env.ESBAPIKEY}`);
     const data = response.data;
     return data.content.hexCodes;
+}
+
+/**
+ * Returns the brightest from our ESBLIGHTS API.
+ * @returns birghtest
+ */
+async function getBrightest() {
+    const response = await axios.get(`https://esblight-api.kinetic.com/api/esb-light-data?apikey=${process.env.ESBAPIKEY}`);
+    const data = response.data;
+    let zArr = [];
+    data.content.xyzCodes.forEach((xyz) => { 
+        zArr.push(xyz[2] * 254);
+    });
+
+    const brightest = Math.round(Math.max(...zArr));
+    return brightest;
 }
 
 /**
@@ -135,9 +154,14 @@ function hexToXY(hex) {
         .match(/.{1,2}/g)
         .map((color) => parseInt(color, 16));
 
-    if (rgb[0] == 0) rgb[0] = .001;
-    if (rgb[1] == 0) rgb[1] = .001;
-    if (rgb[2] == 0) rgb[2] = .001;
+    colorSequence = `\x1b[38;2;${rgb.join(';')}m`;
+    resetSequence = '\x1b[0m';
+    console.log(colorSequence + "Boom!" + resetSequence);
+
+    // Make sure no values are 0
+    if (rgb[0] <= 0) rgb[0] = .001;
+    if (rgb[1] <= 0) rgb[1] = .001;
+    if (rgb[2] <= 0) rgb[2] = .001;
 
     // Normalize the RGB values
     const normalizedRGB = rgb.map((value) => value / 255);
@@ -182,28 +206,9 @@ function calculateBrightness(hex) {
     // Calculate the brightness (Y component) in XYZ color space
     let y = gammaCorrectedRGB[0] * 0.212656 + gammaCorrectedRGB[1] * 0.715158 + gammaCorrectedRGB[2] * 0.072186;
 
-    if (y == 0) y = 0.01;
+    if (y == 0) y = 0.001;
 
     return y;
-}
-
-/**
- * Get light properties
- * @param {int} id
- * @returns response
- */
-function getLightProperties(id) {
-    return axios.get(`http://${bridgeIP}/api/${username}/lights/${id}`)
-        .then((response) => {
-            if (response.status === 200) {
-                return response.data;
-            } else {
-                throw new Error('Something went wrong');
-            }
-        })
-        .catch((error) => {
-            throw error;
-        });
 }
 
 /**
@@ -212,11 +217,18 @@ function getLightProperties(id) {
  * @param {*} hexCode
  * @returns response
  */
-function setLightProperties(id, hexCode) {
+async function setLightProperties(id, hexCode, boostFactor) {
+    // Calibrate
+    let briBoost = Math.round((254 - await getBrightest()) * boostFactor);
+    let xy = hexToXY(hexCode);
+
+    // xy = [xy[0] + 0.15, xy[1] - 0.1] // Normalize the color to appear warmer
+
     const url = `http://${bridgeIP}/api/${username}/lights/${id}/state`;
     const body = JSON.stringify({
-        xy: hexToXY(hexCode),
-        bri: Math.round(calculateBrightness(hexCode) * 254),
+        xy: xy,
+        bri: Math.round(calculateBrightness(hexCode) * 254) + briBoost,
+        // ct: 500,
     });
 
     return axios.put(url, body, {
@@ -231,34 +243,3 @@ function setLightProperties(id, hexCode) {
             console.log(error);
         });
 }
-
-
-// /**
-//  * Set light properties
-//  * @param {*} id 
-//  * @param {*} hexCode 
-//  * @param {*} bri
-//  * @returns response
-//  */
-// function setLightProperties(id, hexCode, bri) {
-//     bri = 0;
-//     console.log('static brightness:', bri)
-//     const url = `http://${bridgeIP}/api/${username}/lights/${id}/state`;
-//     const body = JSON.stringify({
-//         xy: hexToXY(hexCode),
-//         bri: bri,
-//     });
-//     console.log(bri);
-
-//     return axios.put(url, body, {
-//             headers: {
-//                 'Content-Type': 'application/json',
-//             }
-//         })
-//         .then(response => {
-//             return response.data;
-//         })
-//         .catch(error => {
-//             console.log(error);
-//         });
-// }
