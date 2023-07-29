@@ -1,25 +1,29 @@
 const axios = require('axios');
 const bridgeIP = '192.168.123.253';
 const username = 'kPaxKx0IAHRcoYJFqbEr9SmdJk4tieJAO1OdznEX';
-
+var lightOff;
 require('dotenv').config();
 
 // MAIN
 (async function main() {    
-    await lightOn(18, false);
-    await lightOn(18, true);
+    // return await lightOn(18, false);
+    // return await lightOn(16, false);
+    console.log('light on')
 
     let id = 18;
-    // number between 0 and 1 please.
-    let boostFactor = 1;
+    let boostFactor = 1; // number between 0 and 1 please.
+    lightOff = 0;
 
     // Manage hours of operation
     let [start, end] = [await axios.get('https://api.sunrisesunset.io/json?lat=33.500280&lng=-86.792912')
     .then((response) => {
+        console.log(response.data.results.sunset)
         return parseFloat(
             response.data.results.sunset.split(':')[0]) + 
             parseFloat(response.data.results.sunset.split(':')[1])/60 + 12;
     }), 3];
+
+
 
     const now = new Date();
     const hours = now.getHours();
@@ -27,6 +31,7 @@ require('dotenv').config();
     const seconds = now.getSeconds();
     const decimalTime = hours + (minutes / 60) + (seconds / 3600);   
 
+    
     if (decimalTime >= start || decimalTime < end) {
         // Turn on light
         lightOn(id, true);
@@ -37,27 +42,96 @@ require('dotenv').config();
         lightOn(id, false);
     }
 
+    scheduleLights(id, start, true);
+    scheduleLights(id, end, false);
+
     // Every 1 hour check for new color array and
     // cycle through the colors over a set interval
     // for each color.
     setInterval(async () => {
-
-
         if (decimalTime >= start || decimalTime < end) {
-            // Turn on light
-            lightOn(id, true);
             // Cycle through the colors
             cycleLights(id, await getHexCodes(), boostFactor);
-        } else {
-            // Turn off light
-            lightOn(id, false);
         }
     }, 3600000);
 })();
 // END OF MAIN
 
 // METHODS
+
+/**
+ * Schedule the light to turn on/off at a specific time.
+ * @param {int} id 
+ * @param {float} time 
+ * @param {boolean} on 
+ */
+function scheduleLights(id, time, on) {
+    let currentTime = new Date();
+    let targetTime = new Date(
+        currentTime.getFullYear(),
+        currentTime.getMonth(),
+        currentTime.getDate(),
+        Math.floor(time),
+        Math.floor((time - Math.floor(time)) * 60),
+        0,
+    );
+
+    let timeDiff = targetTime - currentTime;
+
+    if (timeDiff > 0) {
+        setTimeout(async () => {
+            lightOn(id, on) // Repeat every 24 hours
+            
+            // Schedule the next day's on/off time
+            // On time
+            scheduleLights(id, await axios.get('https://api.sunrisesunset.io/json?lat=33.500280&lng=-86.792912')
+            .then((response) => {
+                console.log(response.data.results.sunset)
+                return parseFloat(
+                    response.data.results.sunset.split(':')[0]) + 
+                    parseFloat(response.data.results.sunset.split(':')[1])/60 + 12;
+            }), true);
+            
+            // Off time
+            scheduleLights(id, end, false);        
+        }, timeDiff);
+    } else {
+        // The target time has already passed for today.
+        // Schedule the execution for the next day.
+        const nextDay = new Date(targetTime);
+        nextDay.setDate(nextDay.getDate() + 1);
+        const nextDayTimeDiff = nextDay - currentTime;
+
+        console.log(nextDayTimeDiff / 1000 / 60 / 60)
+        setTimeout(async () => {
+            lightOn(id, on) // Repeat every 24 hours
+            
+            // Schedule the next day's on/off time
+            // On time
+            scheduleLights(id, await axios.get('https://api.sunrisesunset.io/json?lat=33.500280&lng=-86.792912')
+            .then((response) => {
+                console.log(response.data.results.sunset)
+                return parseFloat(
+                    response.data.results.sunset.split(':')[0]) + 
+                    parseFloat(response.data.results.sunset.split(':')[1])/60 + 12;
+            }), true);
+
+            // Off time
+            scheduleLights(id, end, false);
+        }, nextDayTimeDiff);
+    }
+}
+
+/**
+ * Set the on/off state of the light.
+ * @param {String} id 
+ * @param {Boolean} on 
+ * @returns 
+ */
 function lightOn(id, on) {
+    if (!on) lightOff++;
+    if (lightOff < 0) return;
+
     return axios.put(`http://${bridgeIP}/api/${username}/lights/${id}/state`, {
             on: on
         })
@@ -76,8 +150,8 @@ function lightOn(id, on) {
 /**
  * Cycles through the colors in the hexCodes array and apply the color to
  * the corresponding light.
- * @param {*} id
- * @param {*} hexCodes
+ * @param {String} id
+ * @param {Array<String>} hexCodes
  */
 function cycleLights(id, hexCodes, boostFactor) {
 
@@ -106,7 +180,7 @@ function cycleLights(id, hexCodes, boostFactor) {
 /**
  * Converts hex code to RGB.
  * @param {String} hex 
- * @returns {array} [r, g, b]
+ * @returns {Array} [r, g, b]
  */
 function hexToRGB(hex) {
     const bigint = parseInt(hex.replace('#', ''), 16);
@@ -144,7 +218,7 @@ async function getBrightest() {
 
 /**
  * Convert hex codes to XY values.
- * @param {} hex
+ * @param {String} hex
  * @returns XY values
  */
 function hexToXY(hex) {
@@ -185,7 +259,7 @@ function hexToXY(hex) {
 
 /**
  * Calculate the brightness of a color in the CIE 1931 XY color space.
- * @param {string} hex - The hexadecimal color code.
+ * @param {String} hex - The hexadecimal color code.
  * @returns {number} The brightness value (Y component) of the color.
  */
 function calculateBrightness(hex) {
@@ -213,7 +287,7 @@ function calculateBrightness(hex) {
 
 /**
  * Set light properties
- * @param {*} id
+ * @param {} id
  * @param {*} hexCode
  * @returns response
  */
