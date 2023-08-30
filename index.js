@@ -1,7 +1,6 @@
 const axios = require('axios');
 const bridgeIP = '192.168.123.253';
 const username = 'kPaxKx0IAHRcoYJFqbEr9SmdJk4tieJAO1OdznEX';
-var lightOff;
 require('dotenv').config();
 
 // MAIN
@@ -12,7 +11,6 @@ require('dotenv').config();
 
     let id = 18;
     let boostFactor = 1; // number between 0 and 1 please.
-    lightOff = 0;
 
     // Manage hours of operation
     let [start, end] = [await axios.get('https://api.sunrisesunset.io/json?lat=33.500280&lng=-86.792912')
@@ -129,9 +127,7 @@ function scheduleLights(id, time, on) {
  * @returns 
  */
 function lightOn(id, on) {
-    if (!on) lightOff++;
-    if (lightOff < 0) return;
-
+    console.log('Light On.')
     return axios.put(`http://${bridgeIP}/api/${username}/lights/${id}/state`, {
             on: on
         })
@@ -174,7 +170,7 @@ function cycleLights(id, hexCodes, boostFactor) {
         
         i++;
         if (i >= hexCodes.length) i = 0;
-    }, 20 * 1000 / (hexCodes.length));
+    }, 15 * 1000 / (hexCodes.length));
 }
 
 /**
@@ -227,10 +223,6 @@ function hexToXY(hex) {
         .replace(/^#/, '')
         .match(/.{1,2}/g)
         .map((color) => parseInt(color, 16));
-
-    colorSequence = `\x1b[38;2;${rgb.join(';')}m`;
-    resetSequence = '\x1b[0m';
-    console.log(colorSequence + "Boom!" + resetSequence);
 
     // Make sure no values are 0
     if (rgb[0] <= 0) rgb[0] = .001;
@@ -295,8 +287,18 @@ async function setLightProperties(id, hexCode, boostFactor) {
     // Calibrate
     let briBoost = Math.round((254 - await getBrightest()) * boostFactor);
     let xy = hexToXY(hexCode);
+    console.log()
 
-    // xy = [xy[0] + 0.15, xy[1] - 0.1] // Normalize the color to appear warmer
+    let rgb = hexCode
+    .replace(/^#/, '')
+    .match(/.{1,2}/g)
+    .map((color) => parseInt(color, 16));
+
+    colorSequence = `\x1b[38;2;${rgb.join(';')}m`;
+    resetSequence = '\x1b[0m';
+    console.log(colorSequence + "Boom!" + resetSequence);
+
+    xy = [xy[0] + 0.15, xy[1] - 0.1] // Normalize the color to appear warmer
 
     const url = `http://${bridgeIP}/api/${username}/lights/${id}/state`;
     const body = JSON.stringify({
