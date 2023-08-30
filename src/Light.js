@@ -82,7 +82,7 @@ class Light {
      * @returns {Object} The color data
     */
     async getColorData() {
-        this.colorData = await Util.getlightData();
+        this.colorData = await Util.getLightData();
         return this.colorData;
     }
 
