@@ -6,7 +6,7 @@ class Util {
      * Fetch the light data from the ESB Lights API
      * @returns {Object} The light data
      */
-    static async getLightData() {
+    static async getColorData() {
         return (await axios.get(`https://esblight-api.kinetic.com/api/esb-light-data?apikey=${process.env.ESBAPIKEY}`)).data.content;
     }
     
