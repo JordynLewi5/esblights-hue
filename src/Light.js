@@ -10,9 +10,9 @@ class Light {
      * @param {Array} colorIn
      * @param {Array} scheduleIn
      */
-    constructor(lightData, powerIn, scheduleIn) {
-        this.lightData = lightData;
-        this.url = `http://${this.lightData.bridgeIP}/api/${this.lightData.username}/lights/${this.lightData.id}/state`;
+    constructor(lightInfo, powerIn, scheduleIn) {
+        this.lightInfo = lightInfo;
+        this.url = `http://${this.lightInfo.bridgeIP}/api/${this.lightInfo.username}/lights/${this.lightInfo.id}/state`;
         this.power = powerIn;
         this.schedule = scheduleIn;
         this.colorData = [];
@@ -82,7 +82,7 @@ class Light {
      * @returns {Object} The color data
     */
     async getColorData() {
-        this.colorData = await Util.getLightData();
+        this.colorData = await Util.getlightInfo();
         return this.colorData;
     }
 
@@ -131,7 +131,7 @@ class Light {
             })
         } catch (error) {
             // console.log(error);
-            console.log('Error updating light ' + this.lightData.id + '...')
+            console.log('Error updating light ' + this.lightInfo.id + '...')
         }
     }
 }
