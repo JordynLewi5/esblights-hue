@@ -2,8 +2,6 @@ const Util = require('./Util.js');
 const axios = require('axios');
 
 class Light {
-    // 
-
     // CONSTRUCTOR
     /**
      * Creates a new Light object to control a Hue Light
@@ -141,7 +139,6 @@ class Light {
     */
     setPower(powerIn) {
         console.log('Light power set to ' + powerIn + '...');
-
         this.power = powerIn;
         this.updateLights({
             on: this.power,
@@ -167,7 +164,8 @@ class Light {
                 return response.data;
             })
         } catch (error) {
-            console.log('Error updating light ' + this.lightInfo.id + '...')
+            console.log('Error updating light ' + this.lightInfo.id + '...\n' +
+                '\x1b[33m%s\x1b[0m', JSON.stringify(bodyIn));
         }
     }
 }
