@@ -87,8 +87,8 @@ class Light {
             scheduleEvaluated[1] > Util.getCurrentTimeInDecimal() ? scheduleEvaluated[1] - Util.getCurrentTimeInDecimal() : scheduleEvaluated[1] - Util.getCurrentTimeInDecimal() + 24
         );
 
-        console.log('Next light on in ' + timeUntilOn + ' hours...'
-            + '\nNext light off in ' + timeUntilOff + ' hours...')
+        console.log(this.lightInfo.id + ': Next light on in ' + timeUntilOn + ' hours...\n'
+            + this.lightInfo.id + ': Next light off in ' + timeUntilOff + ' hours...')
 
         // Schedule the next day's on/off time
         // On time
@@ -101,7 +101,7 @@ class Light {
         setTimeout(() => {
             this.setPower(false);
             setTimeout(() => {
-                console.log('Scheduling next light cycle...')
+                console.log(this.lightInfo.id + ': Scheduling next light cycle...')
                 this.scheduleLight();
             }, 1000);
         }, timeUntilOff * 60 * 60 * 1000);
@@ -138,7 +138,7 @@ class Light {
      * @param {Number} powerIn
     */
     setPower(powerIn) {
-        console.log('Light power set to ' + powerIn + '...');
+        console.log(this.lightInfo.id + ': Light power set to ' + powerIn + '...');
         this.power = powerIn;
         this.updateLights({
             on: this.power,
@@ -164,7 +164,7 @@ class Light {
                 return response.data;
             })
         } catch (error) {
-            console.log('Error updating light ' + this.lightInfo.id + '...\n' +
+            console.log(this.lightInfo.id + ': Error updating light ' + this.lightInfo.id + '...\n' +
                 '\x1b[33m%s\x1b[0m', JSON.stringify(bodyIn));
         }
     }
