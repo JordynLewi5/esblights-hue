@@ -164,6 +164,7 @@ class Light {
                 return response.data;
             })
         } catch (error) {
+            console.log(error)
             console.log(new Date() + "\n" + this.lightInfo.id + ': Error updating light ' + this.lightInfo.id + '...\n' +
                 '\x1b[33m%s\x1b[0m', JSON.stringify(bodyIn));
         }
