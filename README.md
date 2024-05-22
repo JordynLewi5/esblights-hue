@@ -1,7 +1,5 @@
 # ESB Lights Hue
 
-https://kodex.kinetic.com/hue/
-
 # Installation and Execution
 
 1. Clone repo to local.
